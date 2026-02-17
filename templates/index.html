@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LLM Selection Workbench</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>LLM Selection Workbench (Parts 1–6)</h1>
+      <p>Cost, selection, benchmark, decision matrix, canary rollout, and full e-commerce recommendation.</p>
+    </header>
+
+    <main>
+      <section class="panel controls">
+        <h2>Global Configuration</h2>
+        <label>Requests / day <input type="number" id="requestsPerDay" value="100000" min="1" /></label>
+        <label>Avg input tokens <input type="number" id="inputTokens" value="500" min="1" /></label>
+        <label>Avg output tokens <input type="number" id="outputTokens" value="300" min="1" /></label>
+        <label>Benchmark iterations <input type="number" id="iterations" value="3" min="1" max="10" /></label>
+      </section>
+
+      <section class="panel">
+        <h2>Part 1: Total Monthly Cost Breakdown</h2>
+        <button id="runCost">Run Cost Analysis</button>
+        <canvas id="costChart"></canvas>
+        <div id="costTable"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Part 2: Selection Framework</h2>
+        <label>Model <select id="selectionModel"></select></label>
+        <button id="runSelection">Evaluate Use Case</button>
+        <div id="selectionSummary"></div>
+        <div id="selectionTests"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Part 3: Benchmark Models</h2>
+        <button id="runBenchmark">Run Benchmark</button>
+        <canvas id="benchmarkChart"></canvas>
+        <div id="benchmarkRankings"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Example Output (Requested Format)</h2>
+        <button id="loadExample">Load Example Output</button>
+        <div id="exampleOutput"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Part 4: Decision Matrix</h2>
+        <div class="grid2">
+          <label>Accuracy requirement <input id="accuracyReq" type="number" step="0.01" value="0.85" /></label>
+          <label>Latency requirement (ms) <input id="latencyReq" type="number" value="1000" /></label>
+          <label>Budget/month ($) <input id="budgetReq" type="number" value="12000" /></label>
+          <label>Use case <input id="useCaseReq" type="text" value="customer_support" /></label>
+        </div>
+        <button id="runDecision">Recommend Model</button>
+        <div id="decisionResult"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Part 5: Canary Deployment</h2>
+        <div class="grid2">
+          <label>Current model <select id="currentModel"></select></label>
+          <label>New model <select id="newModel"></select></label>
+        </div>
+        <button id="runCanary">Simulate Progressive Rollout</button>
+        <div id="canaryResult"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Part 6: E-Commerce End-to-End Example</h2>
+        <button id="runEcommerce">Run Real-World Example</button>
+        <div id="ecommerceResult"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Part 7: Common Mistakes to Avoid</h2>
+        <button id="loadMistakes">Load Mistakes Guide</button>
+        <div id="mistakesResult"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Part 8: Re-Evaluation Triggers</h2>
+        <button id="loadTriggers">Load Re-Evaluation Triggers</button>
+        <div id="triggersResult"></div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

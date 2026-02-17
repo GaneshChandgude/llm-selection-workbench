@@ -1,0 +1,27 @@
+[
+  {
+    "key": "claude_opus",
+    "name": "Claude Opus 4.5",
+    "provider": "Anthropic"
+  },
+  {
+    "key": "claude_sonnet",
+    "name": "Claude Sonnet 4.5",
+    "provider": "Anthropic"
+  },
+  {
+    "key": "claude_haiku",
+    "name": "Claude Haiku 4.5",
+    "provider": "Anthropic"
+  },
+  {
+    "key": "gpt_4o",
+    "name": "GPT-4o",
+    "provider": "OpenAI"
+  },
+  {
+    "key": "llama3_self_hosted",
+    "name": "Llama 3 (Self-hosted)",
+    "provider": "Meta"
+  }
+]
