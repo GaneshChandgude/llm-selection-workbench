@@ -8,6 +8,10 @@ const currentModel = document.getElementById("currentModel");
 const newModel = document.getElementById("newModel");
 const modelSelectionList = document.getElementById("modelSelectionList");
 const modelConfigMessage = document.getElementById("modelConfigMessage");
+const criticModel = document.getElementById("criticModel");
+const routerPrompt = document.getElementById("routerPrompt");
+const routerGolden = document.getElementById("routerGolden");
+const routerPriority = document.getElementById("routerPriority");
 
 const costTable = document.getElementById("costTable");
 const selectionSummary = document.getElementById("selectionSummary");
@@ -19,6 +23,8 @@ const canaryResult = document.getElementById("canaryResult");
 const ecommerceResult = document.getElementById("ecommerceResult");
 const mistakesResult = document.getElementById("mistakesResult");
 const triggersResult = document.getElementById("triggersResult");
+const routerSummary = document.getElementById("routerSummary");
+const routerResults = document.getElementById("routerResults");
 
 const costCanvas = document.getElementById("costChart");
 const benchmarkCanvas = document.getElementById("benchmarkChart");
@@ -67,9 +73,11 @@ function populateModelDropdowns() {
   selectionModel.innerHTML = opts;
   currentModel.innerHTML = opts;
   newModel.innerHTML = opts;
+  criticModel.innerHTML = opts;
   if (fallback.length) {
     currentModel.value = fallback[0].key;
     newModel.value = fallback[Math.min(1, fallback.length - 1)].key;
+    criticModel.value = fallback[0].key;
   }
 }
 
@@ -213,6 +221,43 @@ async function runEcommerce() { renderEcommerce(await (await fetch("/api/ecommer
 async function loadMistakes() { renderMistakes(await (await fetch("/api/mistakes")).json()); }
 async function loadTriggers() { renderTriggers(await (await fetch("/api/reevaluation-triggers")).json()); }
 
+
+function renderRouter(data) {
+  routerSummary.innerHTML = `<div class="card"><strong>Suggested model:</strong> ${data.suggested_best_model_name} <span class="badge">${data.suggested_best_model}</span> <span class="badge">Critic: ${data.critic_model}</span></div>
+  <div class="card">Priority: ${data.priority} → Quality ${(data.priority_weights.quality * 100).toFixed(0)}% | Cost ${(data.priority_weights.cost * 100).toFixed(0)}% | Latency ${(data.priority_weights.latency * 100).toFixed(0)}%</div>`;
+
+  routerResults.innerHTML = data.results
+    .map((row) => `
+      <div class="card">
+        <strong>${row.model_name}</strong> <small>(${row.provider})</small>
+        <div>Weighted score: <strong>${row.priority_scores.weighted}</strong> | Quality: ${row.judge.quality_score} | Cost fit: ${row.priority_scores.cost} | Latency fit: ${row.priority_scores.latency}</div>
+        <div>Tokens → in: ${row.tokens.input}, out: ${row.tokens.output} | Estimated cost: $${row.cost.estimated} | Latency: ${row.latency_ms}ms</div>
+        <div><strong>Output:</strong> ${row.output}</div>
+      </div>
+    `)
+    .join("");
+}
+
+async function runRouterLab() {
+  const prompt = routerPrompt.value.trim();
+  const golden = routerGolden.value.trim();
+  if (!prompt || !golden) {
+    routerSummary.innerHTML = '<div class="card">❌ Prompt and golden output are required.</div>';
+    routerResults.innerHTML = '';
+    return;
+  }
+
+  renderRouter(
+    await apiPost("/api/router/test", {
+      prompt,
+      golden_output: golden,
+      models: selectedOrFallback(),
+      critic_model: criticModel.value,
+      priority: routerPriority.value,
+    }),
+  );
+}
+
 function setupTabs() {
   const buttons = Array.from(document.querySelectorAll(".tab-btn"));
   const panels = Array.from(document.querySelectorAll(".tab-panel"));
@@ -238,6 +283,7 @@ document.getElementById("runCanary").addEventListener("click", runCanary);
 document.getElementById("runEcommerce").addEventListener("click", runEcommerce);
 document.getElementById("loadMistakes").addEventListener("click", loadMistakes);
 document.getElementById("loadTriggers").addEventListener("click", loadTriggers);
+document.getElementById("runRouterLab").addEventListener("click", runRouterLab);
 
 (async function init() {
   setupTabs();
@@ -251,4 +297,7 @@ document.getElementById("loadTriggers").addEventListener("click", loadTriggers);
   await runEcommerce();
   await loadMistakes();
   await loadTriggers();
+  routerPrompt.value = "Classify sentiment for: I am happy with this product.";
+  routerGolden.value = "positive";
+  await runRouterLab();
 })();

@@ -35,3 +35,14 @@ def test_refresh_model_services_includes_custom_model(tmp_path, monkeypatch):
 
 def test_slugify_returns_safe_key():
     assert app._slugify(" My Fancy/Model ") == "my_fancy_model"
+
+
+def test_refresh_updates_routing_judge_models(tmp_path, monkeypatch):
+    store = tmp_path / "user_models.json"
+    store.write_text('{"custom_models": {"x_model": {"name": "X", "provider": "Acme"}}, "selected_models": ["x_model"]}')
+    monkeypatch.setattr(app, "USER_MODELS_PATH", store)
+
+    models, _ = app._refresh_model_services()
+
+    assert "x_model" in app.ROUTING_JUDGE.models
+    assert app.ROUTING_JUDGE.models["x_model"].name == models["x_model"].name

@@ -15,6 +15,7 @@ from engine import (
     ModelCostBreakdown,
     ModelProfile,
     ModelReevaluationTriggers,
+    RoutingJudge,
     ModelSelectionFramework,
     generate_example_output,
     run_ecommerce_example,
@@ -37,6 +38,7 @@ DECISION = DecisionMatrix(DEFAULT_MODELS)
 CANARY = CanaryDeployment(DEFAULT_MODELS)
 MISTAKES = CommonMistakesGuide()
 REEVAL = ModelReevaluationTriggers()
+ROUTING_JUDGE = RoutingJudge(DEFAULT_MODELS)
 MODELS_LOCK = RLock()
 
 DEFAULT_SCENARIOS = [
@@ -135,6 +137,7 @@ def _refresh_model_services() -> tuple[dict[str, ModelProfile], list[str]]:
     BENCHMARK.models = all_models
     DECISION.models = all_models
     CANARY.models = all_models
+    ROUTING_JUDGE.models = all_models
     return all_models, selected_models
 
 
@@ -319,6 +322,24 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                     current_model=current,
                     new_model=new,
                     final_traffic_percent=int(payload.get("final_traffic_percent", 100)),
+                ),
+            )
+            return
+
+        if path == "/api/router/test":
+            requested = payload.get("models")
+            model_keys = [key for key in requested if key in all_models] if isinstance(requested, list) and requested else selected_models
+            critic_model = str(payload.get("critic_model", model_keys[0] if model_keys else ""))
+            if critic_model not in all_models:
+                critic_model = model_keys[0] if model_keys else next(iter(all_models.keys()))
+            self._send_json(
+                200,
+                ROUTING_JUDGE.run(
+                    prompt=str(payload.get("prompt", "")),
+                    golden_output=str(payload.get("golden_output", "")),
+                    candidate_models=model_keys,
+                    critic_model=critic_model,
+                    priority=str(payload.get("priority", "balanced")),
                 ),
             )
             return
