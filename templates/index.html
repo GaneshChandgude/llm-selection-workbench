@@ -9,27 +9,65 @@
   </head>
   <body>
     <header>
-      <h1>LLM Selection Workbench (Full 8-Part Workflow)</h1>
-      <p>Cost, selection, benchmark, decision matrix, canary rollout, e-commerce example, mistakes guide, and re-evaluation triggers.</p>
+      <h1>LLM Selection Workbench</h1>
+      <p>All 8 parts are now organized as tabs, with model catalog controls and custom model persistence.</p>
     </header>
 
     <main>
       <section class="panel controls">
         <h2>Global Configuration</h2>
-        <label>Requests / day <input type="number" id="requestsPerDay" value="100000" min="1" /></label>
-        <label>Avg input tokens <input type="number" id="inputTokens" value="500" min="1" /></label>
-        <label>Avg output tokens <input type="number" id="outputTokens" value="300" min="1" /></label>
-        <label>Benchmark iterations <input type="number" id="iterations" value="3" min="1" max="10" /></label>
+        <div class="controls-grid">
+          <label>Requests / day <input type="number" id="requestsPerDay" value="100000" min="1" /></label>
+          <label>Avg input tokens <input type="number" id="inputTokens" value="500" min="1" /></label>
+          <label>Avg output tokens <input type="number" id="outputTokens" value="300" min="1" /></label>
+          <label>Benchmark iterations <input type="number" id="iterations" value="3" min="1" max="10" /></label>
+        </div>
+
+        <h3>Model Catalog</h3>
+        <p class="muted">Choose the models you care about, and optionally add your own model profile (persisted in the app data store).</p>
+        <div id="modelSelectionList" class="checklist"></div>
+        <button id="saveModelSelection">Save Selected Models</button>
+
+        <details>
+          <summary>Add custom model</summary>
+          <div class="grid3 model-form">
+            <label>Name <input id="customName" type="text" placeholder="Acme Reasoner v1" /></label>
+            <label>Provider <input id="customProvider" type="text" value="Custom" /></label>
+            <label>Input cost /1k <input id="customInputCost" type="number" step="0.0001" value="0.001" /></label>
+            <label>Output cost /1k <input id="customOutputCost" type="number" step="0.0001" value="0.002" /></label>
+            <label>Latency p99 (ms) <input id="customLatency" type="number" value="350" /></label>
+            <label>Quality score (0-1) <input id="customQuality" type="number" step="0.01" value="0.85" /></label>
+            <label>Hallucination rate (0-1) <input id="customHallucination" type="number" step="0.01" value="0.05" /></label>
+            <label>Context window <input id="customContext" type="number" value="128000" /></label>
+            <label>Best for <input id="customBestFor" type="text" value="Custom enterprise workflows" /></label>
+            <label>Infra cost / month <input id="customInfra" type="number" step="0.01" value="0" /></label>
+            <label>Ops cost / month <input id="customOps" type="number" step="0.01" value="0" /></label>
+          </div>
+          <button id="addCustomModel">Add Custom Model</button>
+        </details>
+        <div id="modelConfigMessage"></div>
       </section>
 
-      <section class="panel">
+      <nav class="tabs" id="tabNav">
+        <button class="tab-btn active" data-tab="tab-cost">Part 1: Cost</button>
+        <button class="tab-btn" data-tab="tab-selection">Part 2: Selection</button>
+        <button class="tab-btn" data-tab="tab-benchmark">Part 3: Benchmark</button>
+        <button class="tab-btn" data-tab="tab-decision">Part 4: Decision Matrix</button>
+        <button class="tab-btn" data-tab="tab-canary">Part 5: Canary</button>
+        <button class="tab-btn" data-tab="tab-ecommerce">Part 6: E-Commerce</button>
+        <button class="tab-btn" data-tab="tab-mistakes">Part 7: Mistakes</button>
+        <button class="tab-btn" data-tab="tab-triggers">Part 8: Triggers</button>
+        <button class="tab-btn" data-tab="tab-example">Example Output</button>
+      </nav>
+
+      <section id="tab-cost" class="panel tab-panel active">
         <h2>Part 1: Total Monthly Cost Breakdown</h2>
         <button id="runCost">Run Cost Analysis</button>
         <canvas id="costChart"></canvas>
         <div id="costTable"></div>
       </section>
 
-      <section class="panel">
+      <section id="tab-selection" class="panel tab-panel">
         <h2>Part 2: Selection Framework</h2>
         <label>Model <select id="selectionModel"></select></label>
         <button id="runSelection">Evaluate Use Case</button>
@@ -37,20 +75,14 @@
         <div id="selectionTests"></div>
       </section>
 
-      <section class="panel">
+      <section id="tab-benchmark" class="panel tab-panel">
         <h2>Part 3: Benchmark Models</h2>
         <button id="runBenchmark">Run Benchmark</button>
         <canvas id="benchmarkChart"></canvas>
         <div id="benchmarkRankings"></div>
       </section>
 
-      <section class="panel">
-        <h2>Example Output (Requested Format)</h2>
-        <button id="loadExample">Load Example Output</button>
-        <div id="exampleOutput"></div>
-      </section>
-
-      <section class="panel">
+      <section id="tab-decision" class="panel tab-panel">
         <h2>Part 4: Decision Matrix</h2>
         <div class="grid2">
           <label>Accuracy requirement <input id="accuracyReq" type="number" step="0.01" value="0.85" /></label>
@@ -62,7 +94,7 @@
         <div id="decisionResult"></div>
       </section>
 
-      <section class="panel">
+      <section id="tab-canary" class="panel tab-panel">
         <h2>Part 5: Canary Deployment</h2>
         <div class="grid2">
           <label>Current model <select id="currentModel"></select></label>
@@ -72,22 +104,28 @@
         <div id="canaryResult"></div>
       </section>
 
-      <section class="panel">
+      <section id="tab-ecommerce" class="panel tab-panel">
         <h2>Part 6: E-Commerce End-to-End Example</h2>
         <button id="runEcommerce">Run Real-World Example</button>
         <div id="ecommerceResult"></div>
       </section>
 
-      <section class="panel">
+      <section id="tab-mistakes" class="panel tab-panel">
         <h2>Part 7: Common Mistakes to Avoid</h2>
         <button id="loadMistakes">Load Mistakes Guide</button>
         <div id="mistakesResult"></div>
       </section>
 
-      <section class="panel">
+      <section id="tab-triggers" class="panel tab-panel">
         <h2>Part 8: Re-Evaluation Triggers</h2>
         <button id="loadTriggers">Load Re-Evaluation Triggers</button>
         <div id="triggersResult"></div>
+      </section>
+
+      <section id="tab-example" class="panel tab-panel">
+        <h2>Example Output (Requested Format)</h2>
+        <button id="loadExample">Load Example Output</button>
+        <div id="exampleOutput"></div>
       </section>
     </main>
 
