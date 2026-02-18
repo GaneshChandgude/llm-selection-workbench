@@ -10,20 +10,22 @@
   <body>
     <header>
       <h1>LLM Selection Workbench</h1>
-      <p>All 8 parts are now organized as tabs, with model catalog controls and custom model persistence.</p>
     </header>
 
     <main>
-      <section class="panel controls">
-        <h2>Global Configuration</h2>
-        <div class="controls-grid">
-          <label>Requests / day <input type="number" id="requestsPerDay" value="100000" min="1" /></label>
-          <label>Avg input tokens <input type="number" id="inputTokens" value="500" min="1" /></label>
-          <label>Avg output tokens <input type="number" id="outputTokens" value="300" min="1" /></label>
-          <label>Benchmark iterations <input type="number" id="iterations" value="3" min="1" max="10" /></label>
-        </div>
+      <nav class="tabs" id="tabNav">
+        <button class="tab-btn active" data-tab="tab-model-catalog">Model Catalog</button>
+        <button class="tab-btn" data-tab="tab-global-config">Global Configuration</button>
+        <button class="tab-btn" data-tab="tab-cost">Part 1: Cost</button>
+        <button class="tab-btn" data-tab="tab-selection">Part 2: Selection</button>
+        <button class="tab-btn" data-tab="tab-benchmark">Part 3: Benchmark</button>
+        <button class="tab-btn" data-tab="tab-decision">Part 4: Decision Matrix</button>
+        <button class="tab-btn" data-tab="tab-canary">Part 5: Canary</button>
+        <button class="tab-btn" data-tab="tab-router">Router Lab</button>
+      </nav>
 
-        <h3>Model Catalog</h3>
+      <section id="tab-model-catalog" class="panel tab-panel active">
+        <h2>Model Catalog</h2>
         <p class="muted">Choose the models you care about, and optionally add your own model profile (persisted in the app data store).</p>
         <div id="modelSelectionList" class="checklist"></div>
         <button id="saveModelSelection">Save Selected Models</button>
@@ -48,18 +50,15 @@
         <div id="modelConfigMessage"></div>
       </section>
 
-      <nav class="tabs" id="tabNav">
-        <button class="tab-btn active" data-tab="tab-cost">Part 1: Cost</button>
-        <button class="tab-btn" data-tab="tab-selection">Part 2: Selection</button>
-        <button class="tab-btn" data-tab="tab-benchmark">Part 3: Benchmark</button>
-        <button class="tab-btn" data-tab="tab-decision">Part 4: Decision Matrix</button>
-        <button class="tab-btn" data-tab="tab-canary">Part 5: Canary</button>
-        <button class="tab-btn" data-tab="tab-ecommerce">Part 6: E-Commerce</button>
-        <button class="tab-btn" data-tab="tab-mistakes">Part 7: Mistakes</button>
-        <button class="tab-btn" data-tab="tab-triggers">Part 8: Triggers</button>
-        <button class="tab-btn" data-tab="tab-router">Router Lab</button>
-        <button class="tab-btn" data-tab="tab-example">Example Output</button>
-      </nav>
+      <section id="tab-global-config" class="panel tab-panel">
+        <h2>Global Configuration</h2>
+        <div class="controls-grid">
+          <label>Requests / day <input type="number" id="requestsPerDay" value="100000" min="1" /></label>
+          <label>Avg input tokens <input type="number" id="inputTokens" value="500" min="1" /></label>
+          <label>Avg output tokens <input type="number" id="outputTokens" value="300" min="1" /></label>
+          <label>Benchmark iterations <input type="number" id="iterations" value="3" min="1" max="10" /></label>
+        </div>
+      </section>
 
       <section id="tab-cost" class="panel tab-panel active">
         <h2>Part 1: Total Monthly Cost Breakdown</h2>
@@ -105,25 +104,6 @@
         <div id="canaryResult"></div>
       </section>
 
-      <section id="tab-ecommerce" class="panel tab-panel">
-        <h2>Part 6: E-Commerce End-to-End Example</h2>
-        <button id="runEcommerce">Run Real-World Example</button>
-        <div id="ecommerceResult"></div>
-      </section>
-
-      <section id="tab-mistakes" class="panel tab-panel">
-        <h2>Part 7: Common Mistakes to Avoid</h2>
-        <button id="loadMistakes">Load Mistakes Guide</button>
-        <div id="mistakesResult"></div>
-      </section>
-
-      <section id="tab-triggers" class="panel tab-panel">
-        <h2>Part 8: Re-Evaluation Triggers</h2>
-        <button id="loadTriggers">Load Re-Evaluation Triggers</button>
-        <div id="triggersResult"></div>
-      </section>
-
-
       <section id="tab-router" class="panel tab-panel">
         <h2>Router Lab: Prompt + Golden Output + Critic Judge</h2>
         <p class="muted">Run selected models for your prompt, compare against a golden answer, and get a recommendation by priority.</p>
@@ -143,12 +123,11 @@
         <button id="runRouterLab">Test Routing</button>
         <div id="routerSummary"></div>
         <div id="routerResults"></div>
-      </section>
 
-      <section id="tab-example" class="panel tab-panel">
-        <h2>Example Output (Requested Format)</h2>
-        <button id="loadExample">Load Example Output</button>
-        <div id="exampleOutput"></div>
+        <h3>Saved Prompt Evaluations</h3>
+        <p class="muted">Reuse and re-evaluate previously saved prompt + golden output pairs.</p>
+        <button id="refreshRouterHistory">Refresh Saved Evaluations</button>
+        <div id="routerHistory"></div>
       </section>
     </main>
 

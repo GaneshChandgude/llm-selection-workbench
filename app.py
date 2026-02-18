@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import RLock
 from urllib.parse import urlparse
+from uuid import uuid4
 
 from engine import (
     DEFAULT_MODELS,
@@ -25,6 +27,7 @@ from engine import (
 BASE_DIR = Path(__file__).parent
 INDEX_PATH = BASE_DIR / "templates" / "index.html"
 USER_MODELS_PATH = BASE_DIR / "data" / "user_models.json"
+ROUTER_HISTORY_PATH = BASE_DIR / "data" / "router_history.json"
 CONTENT_TYPES = {
     ".css": "text/css; charset=utf-8",
     ".js": "application/javascript; charset=utf-8",
@@ -40,6 +43,7 @@ MISTAKES = CommonMistakesGuide()
 REEVAL = ModelReevaluationTriggers()
 ROUTING_JUDGE = RoutingJudge(DEFAULT_MODELS)
 MODELS_LOCK = RLock()
+ROUTER_HISTORY_LOCK = RLock()
 
 DEFAULT_SCENARIOS = [
     {
@@ -99,6 +103,59 @@ def _load_user_models() -> dict[str, object]:
 def _save_user_models(payload: dict[str, object]) -> None:
     USER_MODELS_PATH.parent.mkdir(parents=True, exist_ok=True)
     USER_MODELS_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+
+
+def _load_router_history() -> dict[str, object]:
+    if not ROUTER_HISTORY_PATH.exists():
+        return {"entries": []}
+    payload = json.loads(ROUTER_HISTORY_PATH.read_text(encoding="utf-8") or "{}")
+    entries = payload.get("entries") if isinstance(payload, dict) else []
+    return {"entries": entries if isinstance(entries, list) else []}
+
+
+def _save_router_history(payload: dict[str, object]) -> None:
+    ROUTER_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    ROUTER_HISTORY_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _append_router_case(prompt: str, golden_output: str, priority: str, critic_model: str, result: dict[str, object]) -> None:
+    with ROUTER_HISTORY_LOCK:
+        payload = _load_router_history()
+        entries = payload.get("entries")
+        if not isinstance(entries, list):
+            entries = []
+
+        label = prompt.strip().splitlines()[0][:70] or "Router evaluation"
+        suggested = result.get("suggested_best_model_name") if isinstance(result, dict) else None
+        entries.insert(
+            0,
+            {
+                "id": str(uuid4()),
+                "label": label,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "prompt": prompt,
+                "golden_output": golden_output,
+                "priority": priority,
+                "critic_model": critic_model,
+                "last_suggested_model_name": suggested,
+            },
+        )
+
+        payload["entries"] = entries[:50]
+        _save_router_history(payload)
+
+
+def _find_router_case(case_id: str) -> dict[str, object] | None:
+    history = _load_router_history()
+    entries = history.get("entries")
+    if not isinstance(entries, list):
+        return None
+    for entry in entries:
+        if isinstance(entry, dict) and str(entry.get("id")) == case_id:
+            return entry
+    return None
 
 
 def _merge_models(custom_models: dict[str, object]) -> dict[str, ModelProfile]:
@@ -191,6 +248,11 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/reevaluation-triggers":
             self._send_json(200, REEVAL.check_if_reevaluation_needed())
+            return
+        if path == "/api/router/history":
+            with ROUTER_HISTORY_LOCK:
+                history = _load_router_history()
+            self._send_json(200, history)
             return
         if path.startswith("/static/"):
             self._send_file(BASE_DIR / path.lstrip("/"))
@@ -332,15 +394,56 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             critic_model = str(payload.get("critic_model", model_keys[0] if model_keys else ""))
             if critic_model not in all_models:
                 critic_model = model_keys[0] if model_keys else next(iter(all_models.keys()))
+            prompt = str(payload.get("prompt", ""))
+            golden_output = str(payload.get("golden_output", ""))
+            priority = str(payload.get("priority", "balanced"))
+            result = ROUTING_JUDGE.run(
+                prompt=prompt,
+                golden_output=golden_output,
+                candidate_models=model_keys,
+                critic_model=critic_model,
+                priority=priority,
+            )
+            _append_router_case(prompt, golden_output, priority, critic_model, result)
+            self._send_json(200, result)
+            return
+
+        if path == "/api/router/retest":
+            case_id = str(payload.get("case_id", "")).strip()
+            if not case_id:
+                self._send_json(400, {"error": "case_id is required"})
+                return
+
+            case = _find_router_case(case_id)
+            if not case:
+                self._send_json(404, {"error": "Saved evaluation not found"})
+                return
+
+            requested = payload.get("models")
+            model_keys = [key for key in requested if key in all_models] if isinstance(requested, list) and requested else selected_models
+            critic_model = str(payload.get("critic_model", case.get("critic_model", model_keys[0] if model_keys else "")))
+            if critic_model not in all_models:
+                critic_model = model_keys[0] if model_keys else next(iter(all_models.keys()))
+
+            prompt = str(case.get("prompt", ""))
+            golden_output = str(case.get("golden_output", ""))
+            priority = str(case.get("priority", "balanced"))
+            result = ROUTING_JUDGE.run(
+                prompt=prompt,
+                golden_output=golden_output,
+                candidate_models=model_keys,
+                critic_model=critic_model,
+                priority=priority,
+            )
+            _append_router_case(prompt, golden_output, priority, critic_model, result)
             self._send_json(
                 200,
-                ROUTING_JUDGE.run(
-                    prompt=str(payload.get("prompt", "")),
-                    golden_output=str(payload.get("golden_output", "")),
-                    candidate_models=model_keys,
-                    critic_model=critic_model,
-                    priority=str(payload.get("priority", "balanced")),
-                ),
+                {
+                    **result,
+                    "prompt": prompt,
+                    "golden_output": golden_output,
+                    "priority": priority,
+                },
             )
             return
 

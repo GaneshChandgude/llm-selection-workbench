@@ -17,14 +17,11 @@ const costTable = document.getElementById("costTable");
 const selectionSummary = document.getElementById("selectionSummary");
 const selectionTests = document.getElementById("selectionTests");
 const benchmarkRankings = document.getElementById("benchmarkRankings");
-const exampleOutput = document.getElementById("exampleOutput");
 const decisionResult = document.getElementById("decisionResult");
 const canaryResult = document.getElementById("canaryResult");
-const ecommerceResult = document.getElementById("ecommerceResult");
-const mistakesResult = document.getElementById("mistakesResult");
-const triggersResult = document.getElementById("triggersResult");
 const routerSummary = document.getElementById("routerSummary");
 const routerResults = document.getElementById("routerResults");
+const routerHistory = document.getElementById("routerHistory");
 
 const costCanvas = document.getElementById("costChart");
 const benchmarkCanvas = document.getElementById("benchmarkChart");
@@ -113,13 +110,6 @@ function renderBenchmark(data) {
   });
 }
 
-function renderExample(data) {
-  exampleOutput.innerHTML = `
-    ${data.comparison.map((c) => `<div class="card"><strong>${c.model}</strong><br/>Accuracy: ${c.accuracy}<br/>Speed: ${c.speed}<br/>Consistency: ${c.consistency}<br/>Monthly cost: ${c.monthly_cost}</div>`).join("")}
-    <div class="card"><strong>Recommendation: ${data.recommendation.model}</strong><ul>${data.recommendation.reasoning.map((r) => `<li>${r}</li>`).join("")}</ul></div>
-  `;
-}
-
 function renderDecision(data) {
   if (data.recommended_model_name) {
     decisionResult.innerHTML = `<div class="card"><strong>${data.recommended_model_name}</strong><br/>Reason: ${data.reasoning}<br/>Monthly cost: $${data.monthly_cost}<br/>Savings vs budget: $${data.savings_vs_budget}</div>`;
@@ -134,20 +124,6 @@ function renderCanary(data) {
   } else {
     canaryResult.innerHTML = `<div class="card">❌ Rolled back at ${data.failed_at_phase}: ${data.reason}</div>`;
   }
-}
-
-function renderEcommerce(data) {
-  const cost = data.cost_comparison;
-  ecommerceResult.innerHTML = `<div class="card"><strong>Decision:</strong> ${data.decision.recommended_model_name || data.decision.recommendation}</div>
-  <div class="card"><strong>Monthly savings:</strong> $${cost.monthly_savings} | <strong>Annual savings:</strong> $${cost.annual_savings}</div>`;
-}
-
-function renderMistakes(data) {
-  mistakesResult.innerHTML = data.mistakes.map((m) => `<div class="card"><strong>${m.title}</strong><br/>${m.anti_pattern}<br/>${m.recommended}</div>`).join("");
-}
-
-function renderTriggers(data) {
-  triggersResult.innerHTML = Object.entries(data).map(([key, value]) => `<div class="card"><strong>${key}</strong>: ${value}</div>`).join("");
 }
 
 async function loadModels() {
@@ -204,7 +180,6 @@ async function runCost() {
 }
 async function runSelection() { renderSelection(await apiPost("/api/select", { model: selectionModel.value })); }
 async function runBenchmark() { renderBenchmark(await apiPost("/api/benchmark", { models: selectedOrFallback(), iterations: Number(iterationsInput.value || 3) })); }
-async function loadExample() { renderExample(await (await fetch("/api/example-output")).json()); }
 async function runDecision() {
   renderDecision(
     await apiPost("/api/decision", {
@@ -217,9 +192,6 @@ async function runDecision() {
   );
 }
 async function runCanary() { renderCanary(await apiPost("/api/canary", { current_model: currentModel.value, new_model: newModel.value })); }
-async function runEcommerce() { renderEcommerce(await (await fetch("/api/ecommerce-example")).json()); }
-async function loadMistakes() { renderMistakes(await (await fetch("/api/mistakes")).json()); }
-async function loadTriggers() { renderTriggers(await (await fetch("/api/reevaluation-triggers")).json()); }
 
 
 function renderRouter(data) {
@@ -236,6 +208,50 @@ function renderRouter(data) {
       </div>
     `)
     .join("");
+}
+
+function renderRouterHistory(data) {
+  const entries = data.entries || [];
+  if (!entries.length) {
+    routerHistory.innerHTML = '<div class="card">No saved evaluations yet. Run a router test to save one.</div>';
+    return;
+  }
+
+  routerHistory.innerHTML = entries
+    .map((entry) => `
+      <div class="card">
+        <div><strong>${entry.label}</strong> <small>${new Date(entry.created_at).toLocaleString()}</small></div>
+        <div>Priority: ${entry.priority} | Last suggested model: ${entry.last_suggested_model_name || "-"}</div>
+        <div>Prompt: ${entry.prompt}</div>
+        <div>Golden output: ${entry.golden_output}</div>
+        <button class="rerun-router-case" data-case-id="${entry.id}">Re-run Evaluation</button>
+      </div>
+    `)
+    .join("");
+
+  document.querySelectorAll(".rerun-router-case").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const caseId = button.dataset.caseId;
+      const result = await apiPost("/api/router/retest", {
+        case_id: caseId,
+        models: selectedOrFallback(),
+        critic_model: criticModel.value,
+      });
+      if (result.error) {
+        routerSummary.innerHTML = `<div class="card">❌ ${result.error}</div>`;
+        return;
+      }
+      routerPrompt.value = result.prompt;
+      routerGolden.value = result.golden_output;
+      routerPriority.value = result.priority;
+      renderRouter(result);
+      await loadRouterHistory();
+    });
+  });
+}
+
+async function loadRouterHistory() {
+  renderRouterHistory(await (await fetch("/api/router/history")).json());
 }
 
 async function runRouterLab() {
@@ -256,6 +272,7 @@ async function runRouterLab() {
       priority: routerPriority.value,
     }),
   );
+  await loadRouterHistory();
 }
 
 function setupTabs() {
@@ -277,13 +294,10 @@ document.getElementById("addCustomModel").addEventListener("click", addCustomMod
 document.getElementById("runCost").addEventListener("click", runCost);
 document.getElementById("runSelection").addEventListener("click", runSelection);
 document.getElementById("runBenchmark").addEventListener("click", runBenchmark);
-document.getElementById("loadExample").addEventListener("click", loadExample);
 document.getElementById("runDecision").addEventListener("click", runDecision);
 document.getElementById("runCanary").addEventListener("click", runCanary);
-document.getElementById("runEcommerce").addEventListener("click", runEcommerce);
-document.getElementById("loadMistakes").addEventListener("click", loadMistakes);
-document.getElementById("loadTriggers").addEventListener("click", loadTriggers);
 document.getElementById("runRouterLab").addEventListener("click", runRouterLab);
+document.getElementById("refreshRouterHistory").addEventListener("click", loadRouterHistory);
 
 (async function init() {
   setupTabs();
@@ -291,12 +305,9 @@ document.getElementById("runRouterLab").addEventListener("click", runRouterLab);
   await runCost();
   await runSelection();
   await runBenchmark();
-  await loadExample();
   await runDecision();
   await runCanary();
-  await runEcommerce();
-  await loadMistakes();
-  await loadTriggers();
+  await loadRouterHistory();
   routerPrompt.value = "Classify sentiment for: I am happy with this product.";
   routerGolden.value = "positive";
   await runRouterLab();
