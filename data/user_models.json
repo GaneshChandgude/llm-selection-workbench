@@ -1,0 +1,10 @@
+{
+  "custom_models": {},
+  "selected_models": [
+    "claude_opus",
+    "claude_sonnet",
+    "claude_haiku",
+    "gpt_4o",
+    "llama3_self_hosted"
+  ]
+}
