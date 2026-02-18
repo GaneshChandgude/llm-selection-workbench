@@ -57,6 +57,7 @@
         <button class="tab-btn" data-tab="tab-ecommerce">Part 6: E-Commerce</button>
         <button class="tab-btn" data-tab="tab-mistakes">Part 7: Mistakes</button>
         <button class="tab-btn" data-tab="tab-triggers">Part 8: Triggers</button>
+        <button class="tab-btn" data-tab="tab-router">Router Lab</button>
         <button class="tab-btn" data-tab="tab-example">Example Output</button>
       </nav>
 
@@ -120,6 +121,28 @@
         <h2>Part 8: Re-Evaluation Triggers</h2>
         <button id="loadTriggers">Load Re-Evaluation Triggers</button>
         <div id="triggersResult"></div>
+      </section>
+
+
+      <section id="tab-router" class="panel tab-panel">
+        <h2>Router Lab: Prompt + Golden Output + Critic Judge</h2>
+        <p class="muted">Run selected models for your prompt, compare against a golden answer, and get a recommendation by priority.</p>
+        <div class="grid2">
+          <label>Prompt <textarea id="routerPrompt" rows="4" placeholder="Enter the user prompt"></textarea></label>
+          <label>Golden output <textarea id="routerGolden" rows="4" placeholder="Expected ideal response"></textarea></label>
+          <label>Priority preset
+            <select id="routerPriority">
+              <option value="balanced">balanced</option>
+              <option value="quality_first">quality_first</option>
+              <option value="cost_first">cost_first</option>
+              <option value="latency_first">latency_first</option>
+            </select>
+          </label>
+          <label>Critic model <select id="criticModel"></select></label>
+        </div>
+        <button id="runRouterLab">Test Routing</button>
+        <div id="routerSummary"></div>
+        <div id="routerResults"></div>
       </section>
 
       <section id="tab-example" class="panel tab-panel">

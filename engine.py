@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from hashlib import md5
 from statistics import mean
 from typing import Any
 
@@ -270,6 +271,112 @@ class ModelBenchmark:
         out["rankings"]["by_speed"].sort(key=lambda x: x[1])
         out["rankings"]["by_cost"].sort(key=lambda x: x[1])
         return out
+
+
+PRIORITY_PRESETS: dict[str, dict[str, float]] = {
+    "balanced": {"quality": 0.45, "cost": 0.30, "latency": 0.25},
+    "quality_first": {"quality": 0.70, "cost": 0.20, "latency": 0.10},
+    "cost_first": {"quality": 0.20, "cost": 0.70, "latency": 0.10},
+    "latency_first": {"quality": 0.20, "cost": 0.10, "latency": 0.70},
+}
+
+
+class RoutingJudge:
+    """Run a prompt against a model list and score with a critic model."""
+
+    def __init__(self, models: dict[str, ModelProfile] | None = None) -> None:
+        self.models = models or DEFAULT_MODELS
+
+    def _token_estimate(self, text: str) -> int:
+        return max(1, len(text.split()))
+
+    def _simulate_output(self, model: ModelProfile, prompt: str, golden: str) -> str:
+        # Deterministic pseudo-output tuned by model quality for local simulation.
+        seed = int(md5(f"{model.key}|{prompt}|{golden}".encode("utf-8")).hexdigest()[:8], 16)
+        if model.quality_score >= 0.9:
+            return golden
+        if model.quality_score >= 0.8:
+            return golden if seed % 5 else f"{golden} (concise)"
+        if model.quality_score >= 0.72:
+            return golden if seed % 3 else f"Draft answer: {golden[: max(12, len(golden) // 2)]}"
+        return f"Possible answer: {prompt[:80]}"
+
+    def run(
+        self,
+        prompt: str,
+        golden_output: str,
+        candidate_models: list[str],
+        critic_model: str,
+        priority: str,
+    ) -> dict[str, Any]:
+        priority_weights = PRIORITY_PRESETS.get(priority, PRIORITY_PRESETS["balanced"])
+        valid_models = [m for m in candidate_models if m in self.models]
+        if not valid_models:
+            valid_models = list(self.models.keys())
+
+        max_latency = max(self.models[m].speed_ms for m in valid_models)
+        max_token_price = max(
+            self.models[m].input_cost_per_1k + self.models[m].output_cost_per_1k
+            for m in valid_models
+        )
+
+        prompt_tokens = self._token_estimate(prompt)
+        tests: list[dict[str, Any]] = []
+        for key in valid_models:
+            model = self.models[key]
+            output = self._simulate_output(model, prompt, golden_output)
+            output_tokens = self._token_estimate(output)
+            quality = SequenceMatcher(None, output.lower(), golden_output.lower()).ratio()
+            token_cost = ((prompt_tokens / 1000) * model.input_cost_per_1k) + ((output_tokens / 1000) * model.output_cost_per_1k)
+
+            quality_score = quality * 100
+            cost_score = (1 - ((model.input_cost_per_1k + model.output_cost_per_1k) / (max_token_price + 1e-9))) * 100
+            latency_score = (1 - (model.speed_ms / max_latency)) * 100 if max_latency else 100
+            weighted = (
+                (quality_score * priority_weights["quality"])
+                + (cost_score * priority_weights["cost"])
+                + (latency_score * priority_weights["latency"])
+            )
+
+            tests.append(
+                {
+                    "model_key": key,
+                    "model_name": model.name,
+                    "provider": model.provider,
+                    "output": output,
+                    "critic": critic_model,
+                    "judge": {
+                        "quality": round(quality, 4),
+                        "quality_score": round(quality_score, 2),
+                    },
+                    "tokens": {
+                        "input": prompt_tokens,
+                        "output": output_tokens,
+                    },
+                    "cost": {
+                        "estimated": round(token_cost, 6),
+                        "input_cost_per_1k": model.input_cost_per_1k,
+                        "output_cost_per_1k": model.output_cost_per_1k,
+                    },
+                    "latency_ms": model.speed_ms,
+                    "priority_scores": {
+                        "quality": round(quality_score, 2),
+                        "cost": round(cost_score, 2),
+                        "latency": round(latency_score, 2),
+                        "weighted": round(weighted, 2),
+                    },
+                }
+            )
+
+        tests.sort(key=lambda r: r["priority_scores"]["weighted"], reverse=True)
+        return {
+            "priority": priority,
+            "priority_weights": priority_weights,
+            "critic_model": critic_model,
+            "suggested_best_model": tests[0]["model_key"],
+            "suggested_best_model_name": tests[0]["model_name"],
+            "results": tests,
+        }
 
 
 class DecisionMatrix:

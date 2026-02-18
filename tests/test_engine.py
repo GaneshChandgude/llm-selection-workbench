@@ -5,6 +5,7 @@ from engine import (
     ModelBenchmark,
     ModelCostBreakdown,
     ModelSelectionFramework,
+    RoutingJudge,
     generate_example_output,
     run_ecommerce_example,
     CommonMistakesGuide,
@@ -52,3 +53,17 @@ def test_common_mistakes_and_triggers_have_expected_entries():
     triggers = ModelReevaluationTriggers().check_if_reevaluation_needed()
     assert len(mistakes["mistakes"]) == 5
     assert len(triggers) == 6
+
+
+def test_routing_judge_recommends_one_of_candidates():
+    judge = RoutingJudge(DEFAULT_MODELS)
+    result = judge.run(
+        prompt="Classify sentiment for: I am happy with this product",
+        golden_output="positive",
+        candidate_models=["claude_haiku", "claude_sonnet"],
+        critic_model="claude_sonnet",
+        priority="balanced",
+    )
+    assert result["suggested_best_model"] in {"claude_haiku", "claude_sonnet"}
+    assert len(result["results"]) == 2
+    assert "tokens" in result["results"][0]
